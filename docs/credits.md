@@ -4,13 +4,9 @@
 
 ## Original macOS project
 
-[Tangerine for macOS](https://tangerineformac.com/) by Leap Studio inspired Petal’s radial file workflow.
+[Tangerine for macOS](https://tangerineformac.com/) inspired Petal’s radial file workflow.
 
 Petal is an unofficial, independently written Linux port/reimplementation. No original source repository was supplied or verified. It is not an official Tangerine release or a source-code fork. Original Tangerine icons, screenshots, and demo videos are not distributed with Petal.
-
-## Additional interaction reference
-
-[Filee](https://github.com/KnifeLemon/Filee) was reviewed as a reference for per-file-type controls and batch workflows while developing Beta 2. Petal’s native editors are independently implemented; Filee code and conversion engines are not bundled.
 
 ## Petal artwork
 

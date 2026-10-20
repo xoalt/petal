@@ -20,7 +20,7 @@
 
 Drop a file, choose an action, adjust its details, and preview the result before creating a copy. Petal brings a radial wheel, editing tools, and a file shelf to Linux, with settings in a separate window.
 
-For Linux desktops using **Wayland**, with a system tray menu. Inspired by [Tangerine for macOS](https://tangerineformac.com/) by Leap Studio; Petal is an unofficial, independently written Linux reimplementation.
+For Linux desktops using **Wayland**, with a system tray menu. Inspired by [Tangerine for macOS](https://tangerineformac.com/); Petal is an unofficial, independently written Linux reimplementation.
 
 **Beta release.** Petal is under active testing; check [known limitations](docs/guides/limitations.md) before relying on a conversion workflow.
 
@@ -58,6 +58,6 @@ Conversion support depends on the programs and codecs installed. Petal checks th
 
 ## Credits and license
 
-Petal’s code is [MIT licensed](LICENSE). [Tangerine](https://tangerineformac.com/) is the original macOS project by Leap Studio. Petal is not affiliated with Tangerine, and no original source repository was supplied or verified. Original Tangerine graphics are not redistributed.
+Petal’s code is [MIT licensed](LICENSE). [Tangerine](https://tangerineformac.com/) is the original macOS project. Petal is not affiliated with Tangerine, and no original source repository was supplied or verified. Original Tangerine graphics are not redistributed.
 
 See [credits](docs/credits.md) for artwork and third-party licenses.
