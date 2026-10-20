@@ -1,0 +1,17 @@
+name: Feature request
+description: Suggest an improvement to Petal.
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What would you like to do?
+      description: Describe the task or problem this would help with.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested behavior
+      description: Describe your idea. Mockups or examples are welcome.
+    validations:
+      required: true

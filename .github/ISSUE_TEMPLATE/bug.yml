@@ -1,0 +1,30 @@
+name: Bug report
+description: Report something that does not work as expected.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open Petal…"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Petal version, Linux distribution, compositor, and desktop shell.
+      placeholder: "Petal 0.1.0-beta.1 · Linux distribution · Wayland compositor"
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Screenshots or diagnostic output
+      description: Optional. Remove private paths, personal files, and credentials before sharing. For conversion problems, include the input/output formats and program used.

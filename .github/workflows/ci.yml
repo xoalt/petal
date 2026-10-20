@@ -1,0 +1,46 @@
+name: Release checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    container: archlinux:base
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install isolated test-container dependencies
+        # This is an ephemeral CI container, never the user's desktop installer.
+        run: >-
+          pacman -Syu --noconfirm --needed python python-gobject python-cairo
+          python-pillow gtk4 gtk4-layer-shell imagemagick ffmpeg poppler 7zip
+          libreoffice-fresh pandoc-cli ttf-dejavu ttf-liberation ghostscript
+          desktop-file-utils dbus weston git
+      - name: Prepare audit tools
+        run: |
+          python -m venv --system-site-packages .venv
+          .venv/bin/pip install ruff bandit pip-audit
+      - name: Critical Python checks
+        run: |
+          .venv/bin/ruff check petal --select E9,F63,F7,F82
+          python -m compileall -q petal
+          .venv/bin/bandit -r petal -ll
+          .venv/bin/pip-audit --cache-dir "$PWD/work/audit-cache" --no-deps --disable-pip -r requirements-audit.txt
+      - name: Conversion, safety, configuration and package tests
+        run: python -m unittest discover -s tests -v
+      - name: Native UI checks on headless Wayland
+        run: dbus-run-session -- bash scripts/ci_native.sh
+      - name: Build verified archives
+        run: python scripts/build_release.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: petal-checks-and-build
+          path: |
+            work/native
+            work/weston.log
+            dist

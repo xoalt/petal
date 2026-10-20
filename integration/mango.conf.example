@@ -1,0 +1,9 @@
+# Optional. Add only after reviewing your existing bindings.
+# Install Petal's user-local launcher first and ensure ~/.local/bin is on PATH.
+bind=SUPER+SHIFT,c,spawn,petal --wheel
+
+# Optional tray startup; Petal does not add this automatically.
+# exec-once=petal --tray
+
+# Separate namespaces for compositor layer rules:
+# petal-wheel, petal-drop-target, petal-shelf, petal-settings
