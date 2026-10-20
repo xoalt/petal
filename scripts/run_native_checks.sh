@@ -10,3 +10,5 @@ mkdir -p "$petal_reports"
 python3 "$petal_root/tests/verify_onboarding.py" --output-dir "$petal_reports/onboarding"
 python3 "$petal_root/tests/verify_asset_ui.py" --output-dir "$petal_reports/editors"
 python3 "$petal_root/tests/verify_release_ui.py" --output-dir "$petal_reports/ux"
+
+python3 "$petal_root/tests/verify_beta2_ui.py" --output-dir "$petal_reports/beta2"

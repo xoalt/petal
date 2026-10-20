@@ -20,7 +20,7 @@ body:
     attributes:
       label: Environment
       description: Petal version, Linux distribution, compositor, and desktop shell.
-      placeholder: "Petal 0.1.0-beta.1 · Linux distribution · Wayland compositor"
+      placeholder: "Petal 0.1.0-beta.2 · Linux distribution · Wayland compositor"
     validations:
       required: true
   - type: textarea

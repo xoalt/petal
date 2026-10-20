@@ -1,32 +1,11 @@
 {
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "tested_on": "2026-10-20, MangoWM / Wayland",
   "unit_tests": {
-    "total": 70,
-    "passed": 70,
-    "skipped": 0
-  },
-  "native_checks": {
-    "onboarding": {
-      "count": 31,
-      "passed": true
-    },
-    "editors": {
-      "count": 17,
-      "passed": true
-    },
-    "software": {
-      "count": 22,
-      "passed": true
-    },
-    "ux": {
-      "count": 38,
-      "passed": true
-    },
-    "desktop": {
-      "count": 12,
-      "passed": true
-    }
+    "total": 81,
+    "local_passed": 80,
+    "local_skipped": 1,
+    "skip_reason": "Local sandbox prevents the office engine IPC path; full suite runs in CI"
   },
   "vendored_dependency_audit": {
     "dependencies": [
@@ -50,5 +29,38 @@
   "accessibility": "Native keyboard modes, action button roles, contrast and compact large-text layout; not full screen-reader certification",
   "reference": "Unofficial independent Linux port/reimplementation of https://tangerineformac.com/; original graphics excluded",
   "channel": "beta",
-  "local_native_harness_limit": "A later synthetic picker test encountered a GTK segmentation fault. Independent headless native checks run in CI."
+  "local_native_harness_limit": "A later synthetic picker test encountered a GTK segmentation fault. Independent headless native checks run in CI.",
+  "beta2_native_checks": {
+    "count": 33,
+    "passed": true,
+    "coverage": "Action-to-editor routing; two-way image/video rectangle fields; matching crop output; invalid Apply; watermark previews; PDF page order/navigation; batch order; continuation; original hashes"
+  },
+  "baseline_native_checks": {
+    "onboarding": {
+      "count": 31,
+      "passed": true
+    },
+    "editors": {
+      "count": 17,
+      "passed": true
+    },
+    "software": {
+      "count": 22,
+      "passed": true
+    },
+    "ux": {
+      "count": 38,
+      "passed": true
+    },
+    "desktop": {
+      "count": 12,
+      "passed": true
+    }
+  },
+  "current_local_native_checks": {
+    "onboarding": 31,
+    "existing_editors": 17,
+    "beta2_editors": 33,
+    "picker_harness": "Known GTK segmentation fault in artificial native picker responses; headless CI covers this separately"
+  }
 }

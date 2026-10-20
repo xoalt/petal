@@ -39,6 +39,13 @@ separator {background:#343c30;min-height:1px;}
 '''
 
 FIELDS={
+ 'blur':[('radius','Blur radius (pixels)','4')],
+ 'sharpen':[('amount','Sharpness (0–5)','1')],
+ 'watermark':[('text','Watermark text','Petal'),('font_size','Text size','32'),('color','Text color','#ffffff'),('opacity','Opacity (0–100)','60'),('position','Position: center, top-left, bottom-right','bottom-right')],
+ 'border':[('width','Border width (pixels)','16'),('color','Border color','#ffffff')],
+ 'fade':[('fade_in','Fade in (seconds)','0.5'),('fade_out','Fade out (seconds)','0.5')],
+ 'pdf_remove':[('pages','Pages to remove','1')],
+ 'pdf_duplicate':[('pages','Pages to append again','1')],
  'compress':[('quality','Image quality (1–100)','82'),('crf','Video quality / CRF (0–51)','28'),('bitrate','Audio bitrate (kbps)','128')],
  'resize':[('width','Maximum width','1920'),('height','Maximum height','1080')],
  'crop':[('width','Width','400'),('height','Height','300'),('x','Left offset','0'),('y','Top offset','0')],

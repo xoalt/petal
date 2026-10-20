@@ -8,6 +8,8 @@
 - [Using Petal](guides/usage.md) — wheel, tray, keyboard, drop target, and shelf
 - [Wayland setup](guides/wayland.md) — shortcut setup and layer namespaces
 
+- [Interactive editors](guides/editors.md) — drag selections, previews, and multi-step work
+
 ## Reference
 
 - [Formats and tools](guides/formats.md)

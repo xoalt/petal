@@ -46,6 +46,12 @@ TOOLS = {
   Action('rotate','Rotate','Clockwise degrees'),
   Action('flip','Flip','Mirror horizontally or vertically'),
   Action('grayscale','Grayscale'),
+  Action('blur','Blur','Adjust Gaussian blur with a preview'),
+  Action('sharpen','Sharpen','Adjust detail strength'),
+  Action('invert','Invert Colors','Create a negative copy'),
+  Action('sepia','Sepia','Warm monochrome effect'),
+  Action('watermark','Watermark','Text, color, position and opacity'),
+  Action('border','Add Border','Width and color'),
  ],
  'audio': [
   Action('compress','Compress','Choose a bitrate'),
@@ -57,6 +63,7 @@ TOOLS = {
   Action('bleep','Bleep Audio','Mute one or more time ranges'),
   Action('volume','Change Volume'),
   Action('speed','Change Speed'),
+  Action('fade','Fade Audio','Fade in and out'),
  ],
  'video': [
   Action('compress','Compress','Choose a CRF'),
@@ -71,6 +78,7 @@ TOOLS = {
   Action('resize','Resize'),
   Action('rotate','Rotate'),
   Action('extract_audio','Extract Audio'),
+  Action('fade','Fade Video','Fade from and to black'),
  ],
  'pdf': [
   Action('pdf_compress','Compress PDF'),
@@ -79,6 +87,9 @@ TOOLS = {
   Action('pdf_organize','Organize PDF','Reorder or remove pages'),
   Action('pdf_extract','Extract Pages'),
   Action('pdf_rotate','Rotate Pages'),
+  Action('pdf_reverse','Reverse Pages','Reverse the page order'),
+  Action('pdf_remove','Remove Pages','Choose pages to leave out'),
+  Action('pdf_duplicate','Duplicate Pages','Append copies of selected pages'),
  ],
  'archive': [Action('extract','Extract','Unpack into a new folder')],
  'subtitle': [Action('shift_subtitles','Shift Timing')],
@@ -90,7 +101,7 @@ TOOLS = {
 }
 # Tools that stay available when several files are selected, as in the reference.
 MULTI_TOOLS = {
- 'image': {'compress','strip','crop','image_pdf','collage'},
+ 'image': {'compress','strip','crop','image_pdf','collage','blur','sharpen','invert','sepia','watermark','border'},
  'audio': {'compress','strip','normalize','merge_media'},
  'video': {'compress','strip','mute','trim','crop','speed','merge_media'},
  'pdf': {'pdf_compress','strip','pdf_split','pdf_merge'},

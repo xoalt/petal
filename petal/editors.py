@@ -11,7 +11,7 @@ import threading
 import uuid
 import cairo
 from .legacy import Gtk,Gdk,Gio,GLib,box,label,button,FIELDS
-from .catalog import kind,dependencies
+from .catalog import kind,dependencies,choices
 from .engine import execute,Runner,Cancelled,_edit_image,_add_background
 from . import wheel
 
@@ -88,8 +88,8 @@ def scaled_source(src,dest,max_side=1000):
 
 class Editor:
  def __init__(self,app,action):
-  self.app=app;self.action=action;self.paths=list(app.paths);self.values={};self.defaults={};self.scales={};self.closed=False;self.debounce=None;self.preview=AsyncPreview();self.media_preview=AsyncPreview();self.wave_preview=AsyncPreview();self.player=None;self.audio_dir=None;self.source_duration=0;self.ranges=[];self.range_index=-1;self.stop_buttons=[];self.wave_images=[];self.wave_levels=[];self.error=None;self.preview_ready=False;self.pending_apply=False
-  self.window=app.window(action.label,False,680,880 if action.id=='edit' else 840 if action.id=='background' else 530);self.window.add_css_class('tool-window');self.window.set_decorated(False);self.window.set_resizable(False)
+  self.app=app;self.action=action;self.paths=list(app.paths);self.values={};self.defaults={};self.scales={};self.closed=False;self.debounce=None;self.preview=AsyncPreview();self.media_preview=AsyncPreview();self.wave_preview=AsyncPreview();self.player=None;self.audio_dir=None;self.source_duration=0;self.ranges=[];self.range_index=-1;self.stop_buttons=[];self.wave_images=[];self.wave_levels=[];self.error=None;self.preview_ready=False;self.pending_apply=False;self.workflow=False;self.entries={};self._syncing_crop=False;self.preview_result=None;self.canvas_preview=AsyncPreview();self._syncing_pdf=False
+  self.window=app.window(action.label,False,680,880 if action.id=='edit' else 840 if action.id=='background' else 820);self.window.add_css_class('tool-window');self.window.set_decorated(False);self.window.set_resizable(False)
   self.window.connect('notify::visible',lambda w,*_:self.close() if getattr(self,'presented',False) and not w.get_visible() else None)
   key=Gtk.EventControllerKey();key.connect('key-pressed',self.key_pressed);self.window.add_controller(key)
   self.shell=box(spacing=0);self.shell.add_css_class('material-shell');self.window.set_child(self.shell)
@@ -97,7 +97,7 @@ class Editor:
   header.append(button('×',self.close,'close-circle'));title=label(action.label,'tool-title');title.set_xalign(.5);title.set_hexpand(True);header.append(title);spacer=Gtk.Box();spacer.set_size_request(29,-1);header.append(spacer)
   scroll=Gtk.ScrolledWindow();scroll.set_policy(Gtk.PolicyType.AUTOMATIC,Gtk.PolicyType.AUTOMATIC);scroll.set_vexpand(True);self.shell.append(scroll);self.body=box(spacing=8);self.body.add_css_class('tool-body');scroll.set_child(self.body)
   footer=box(Gtk.Orientation.HORIZONTAL,12);footer.add_css_class('tool-footer');self.shell.append(footer)
-  self.notice=label('Original files are preserved.','hint',True);self.notice.set_hexpand(True);footer.append(self.notice);self.apply_button=button('Apply',self.apply);footer.append(self.apply_button)
+  self.notice=label('Original files are preserved.','hint',True);self.notice.set_hexpand(True);footer.append(self.notice);self.apply_button=button('Apply',self.apply,'primary');footer.append(self.apply_button)
   if action.id=='edit':self.photo()
   elif action.id=='background':self.background()
   elif kind(self.paths[0])=='audio' and action.id in ('trim','channels','bleep'):self.audio()
@@ -111,17 +111,19 @@ class Editor:
   if self.closed:return
   self.closed=True
   if self.debounce:GLib.source_remove(self.debounce);self.debounce=None
-  self.preview.stop();self.media_preview.stop();self.wave_preview.stop();self.stop_audio()
+  self.preview.stop();self.media_preview.stop();self.wave_preview.stop();self.canvas_preview.stop();self.stop_audio()
   if self.audio_dir:self.audio_dir.cleanup();self.audio_dir=None
+  if getattr(self,'action_popup',None):self.action_popup.unparent()
   self.window.destroy()
   if self in self.app.editors:self.app.editors.remove(self)
  def apply(self):
   if self.closed or self.app.busy:return
+  if self.workflow and not self.preview_ready:return
   if self.action.id=='bleep':
    if not self.ranges:return
    self.values['ranges']=','.join(f'{a:.4f}-{b:.4f}' for a,b in self.ranges)
-  if self.action.id=='trim':self.values['duration']=max(.01,self.values['end']-self.values['start'])
-  self.app.set_files(self.paths);self.app.start_job(self.action.id,dict(self.values));self.close()
+  if self.action.id=='trim' and 'end' in self.values:self.values['duration']=max(.01,self.values['end']-self.values['start'])
+  self.app.set_files(self.paths);self.app.start_job(self.action.id,{k:v for k,v in self.values.items() if not k.startswith('_')});self.close()
  def group(self,name):self.body.append(label(name,'group-title'))
  def slider(self,key,title,low,high,step,default,suffix='',changed=None,formatter=None):
   self.values[key]=default;self.defaults[key]=default
@@ -135,8 +137,21 @@ class Editor:
   row.append(button('↺',lambda:scale.set_value(default),'reset-control'));self.body.append(row);return scale
  def entry(self,key,title,default):
   self.values[key]=default;row=box(Gtk.Orientation.HORIZONTAL,12);name=label(title,'field-name',True);name.set_hexpand(True);row.append(name);entry=Gtk.Entry(text=str(default));entry.set_width_chars(18)
-  def changed(e):self.values[key]=e.get_text();self.queue_preview()
-  entry.connect('changed',changed);row.append(entry);self.body.append(row);return entry
+  def changed(e):
+   self.values[key]=e.get_text()
+   if self._syncing_crop:return
+   if getattr(self,'crop_canvas',None) and key in ('x','y','width','height'):
+    try:
+     self.crop_canvas.set_rect(*[float(self.values[k]) for k in ('x','y','width','height')]);self.crop_changed(*self.crop_canvas.rect);return
+    except (ValueError,TypeError):pass
+   if key=='pages' and hasattr(self,'pdf_order_list') and not self._syncing_pdf:
+    try:
+     from .engine import _page_indices
+     self.pdf_page_order=[i+1 for i in _page_indices(e.get_text(),self.pdf_source_count)];self.refresh_pdf_order()
+    except ValueError:pass
+    except Exception as error:self.notice.set_text(str(error)[:180])
+   self.queue_preview()
+  entry.connect('changed',changed);row.append(entry);self.body.append(row);self.entries[key]=entry;return entry
  def segments(self,key,title,options,default,changed=None):
   self.values[key]=default;row=box(Gtk.Orientation.HORIZONTAL,12);name=label(title,'field-name');name.set_hexpand(True);row.append(name);segment=box(Gtk.Orientation.HORIZONTAL,0);segment.add_css_class('segment');row.append(segment);buttons=[]
   for text,value in options:
@@ -192,20 +207,176 @@ class Editor:
   for args in [('padding','Padding',0,600,1,64,' px'),('corners','Corners',0,200,1,24,' px'),('shadow','Shadow',0,200,1,30,' px')]:self.slider(*args)
   self.segments('ratio','Ratio',[('Auto','auto'),('1:1','1:1'),('16:9','16:9'),('4:5','4:5')],'auto');self.queue_preview()
  def generic(self):
-  if kind(self.paths[0])=='image':self.picture(True);self.load_picture(self.paths[0])
-  fields=list(FIELDS[self.action.id])
-  if self.action.id=='compress':
-   k=kind(self.paths[0]);fields=[f for f in fields if f[0] in ({'quality'} if k=='image' else {'crf'} if k=='video' else {'bitrate'})]
-  ranges={'quality':(1,100,1),'crf':(0,51,1),'bitrate':(32,320,1),'font_size':(8,160,1),'opacity':(0,100,1),'degrees':(0,360,1),'volume':(0,4,.01),'speed':(.5,2,.01),'seconds':(1,120,1),'count':(1,60,1)}
+  self.workflow=True;self.apply_button.set_label('Create copy');self.apply_button.set_sensitive(False)
+  self.body.append(label(self.paths[0].name+(f' + {len(self.paths)-1} more' if len(self.paths)>1 else ''),'field-name',True))
+  if len(self.paths)>1:self.file_order()
+  crop=self.action.id in ('crop','redact','annotate') and kind(self.paths[0])=='image'
+  video_rect=self.action.id in ('crop','redact') and kind(self.paths[0])=='video'
+  if crop:
+   from .crop import CropCanvas
+   try:
+    self.crop_canvas=CropCanvas(self.paths[0],self.crop_changed)
+    if self.action.id!='crop':self.crop_canvas.set_rect(self.crop_canvas.image_width//4,self.crop_canvas.image_height//4,max(1,self.crop_canvas.image_width//2),max(1,self.crop_canvas.image_height//2))
+    self.body.append(label('Drag to select, move or resize the rectangle. Values and handles stay in sync.','hint',True));self.body.append(self.crop_canvas)
+   except (OSError,ValueError) as e:self.body.append(label('Visual crop unavailable for this input. Convert it to PNG first. '+str(e),'hint',True))
+  if video_rect:
+   self.rectangle_stage=box();self.body.append(self.rectangle_stage);self.load_video_rectangle()
+  if crop or video_rect:
+   self.geometry_grid=Gtk.Grid(column_spacing=18,row_spacing=6);self.geometry_grid.set_column_homogeneous(True);self.body.append(self.geometry_grid)
+  self.body.append(label('Result preview','group-title'))
+  self.picture();self.picture_widget.set_size_request(-1,150 if crop or video_rect else 290)
+  fields=list(FIELDS.get(self.action.id,[]));k=kind(self.paths[0])
+  if self.action.id.startswith('to:'):
+   target=self.action.id[3:]
+   if k=='image' and target not in ('zip','tar','tar.gz'):fields=[('quality','Image quality','85')]
+   elif k=='audio':fields=[('bitrate','Audio bitrate (kbps)','192')]
+   elif k=='video' and target not in ('zip','tar','tar.gz'):fields=[('crf','Video quality / CRF','23')]
+   elif k=='pdf' and target in ('png','jpg'):fields=[('dpi','Resolution (DPI)','150')]
+  if self.action.id=='compress':fields=[f for f in fields if f[0] in ({'quality'} if k=='image' else {'crf'} if k=='video' else {'bitrate'})]
+  if crop and getattr(self,'crop_canvas',None):
+   defaults=dict(zip(('x','y','width','height'),self.crop_canvas.rect))
+   fields=[(key,title,str(defaults[key])) if key in defaults else (key,title,default) for key,title,default in fields]
+  if self.action.id=='pdf_organize':
+   try:
+    from pypdf import PdfReader
+    self.pdf_source_count=len(PdfReader(self.paths[0]).pages)
+   except Exception:self.pdf_source_count=0
+   if self.pdf_source_count:fields=[('pages','Page order',f'1-{self.pdf_source_count}')]
+  ranges={'quality':(1,100,1),'crf':(0,51,1),'bitrate':(32,320,1),'dpi':(36,600,1),'font_size':(8,160,1),'opacity':(0,100,1),'volume':(0,4,.01),'speed':(.5,2,.01),'seconds':(1,120,1),'count':(1,60,1),'radius':(0,100,.1),'amount':(0,5,.1),'fade_in':(0,10,.1),'fade_out':(0,10,.1)}
   for key,title,default in fields:
    if key in ranges:self.slider(key,title,*ranges[key],float(default))
+   elif key=='degrees':self.segments(key,title,[('90°',90),('180°',180),('270°',270)],90)
+   elif key=='color':self.color_field(key,title,default)
+   elif key=='shape':self.segments(key,'Shape',[('Text only','none'),('Rectangle','rectangle'),('Ellipse','ellipse'),('Arrow','arrow')],'rectangle')
+   elif key=='axis':self.segments(key,'Direction',[('Horizontal','horizontal'),('Vertical','vertical')],'horizontal')
+   elif key=='position':self.segments(key,title,[('Top left','top-left'),('Center','center'),('Bottom right','bottom-right')],'bottom-right')
+   elif key in ('x','y','width','height') and hasattr(self,'geometry_grid'):
+    entry=self.entry(key,title,default);entry.set_width_chars(8);row=entry.get_parent();self.body.remove(row);index=('x','y','width','height').index(key);self.geometry_grid.attach(row,index%2,index//2,1,1)
    else:self.entry(key,title,default)
-  self.body.append(label(self.action.hint,'hint',True));self.queue_preview()
+  if self.action.id=='pdf_organize' and 0<getattr(self,'pdf_source_count',0)<=1000:self.pdf_order_controls()
+  if k=='pdf' or self.action.id in ('image_pdf','pdf_merge'):
+   self.preview_page=Gtk.SpinButton.new_with_range(1,1,1);row=box(Gtk.Orientation.HORIZONTAL);row.append(label('Preview page','field-name'));row.append(self.preview_page);self.body.append(row);self.preview_page.connect('value-changed',lambda *_:self.queue_preview())
+  self.preview_details=Gtk.TextView();self.preview_details.set_editable(False);self.preview_details.set_cursor_visible(False);self.preview_details.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+  details=Gtk.ScrolledWindow();details.set_min_content_height(100);details.set_max_content_height(180);details.set_propagate_natural_height(True);details.set_child(self.preview_details);self.body.append(details)
+  self.play_row([('Play result sample',self.play_workflow_preview)]) if k in ('audio','video') else None
+  row=box(Gtk.Orientation.HORIZONTAL);row.append(button('Refresh preview',self.queue_preview));row.append(button('Choose another action',self.choose_action));self.body.append(row)
+  self.body.append(label(self.action.hint or 'Adjust the details, review the result, then create a new copy.','hint',True))
+  if not video_rect:self.queue_preview()
+ def color_field(self,key,title,default):
+  self.values[key]=default;row=box(Gtk.Orientation.HORIZONTAL);name=label(title,'field-name');name.set_hexpand(True);row.append(name);color=Gtk.ColorButton();color.set_use_alpha(False);rgba=Gdk.RGBA();rgba.parse(default.replace('0x','#'));color.set_rgba(rgba)
+  def changed(widget):
+   rgba=widget.get_rgba();self.values[key]=('0x' if default.startswith('0x') else '#')+''.join(f'{round(v*255):02x}' for v in (rgba.red,rgba.green,rgba.blue));self.queue_preview()
+  color.connect('color-set',changed);row.append(color);self.body.append(row)
+ def pdf_order_controls(self):
+  self.pdf_page_order=list(range(1,self.pdf_source_count+1));self.pdf_order_list=Gtk.ListBox();self.pdf_order_list.set_selection_mode(Gtk.SelectionMode.SINGLE);self.refresh_pdf_order()
+  scroll=Gtk.ScrolledWindow();scroll.set_min_content_height(100);scroll.set_max_content_height(160);scroll.set_propagate_natural_height(True);scroll.set_child(self.pdf_order_list);self.body.append(scroll)
+  row=box(Gtk.Orientation.HORIZONTAL);row.append(button('Page up',lambda:self.move_pdf_page(-1)));row.append(button('Page down',lambda:self.move_pdf_page(1)));row.append(button('Remove page',self.remove_pdf_page));self.body.append(row)
+ def refresh_pdf_order(self):
+  child=self.pdf_order_list.get_first_child()
+  while child:
+   nxt=child.get_next_sibling();self.pdf_order_list.remove(child);child=nxt
+  for page in self.pdf_page_order:self.pdf_order_list.append(label('Source page '+str(page),'hint'))
+ def sync_pdf_order(self,index):
+  self._syncing_pdf=True
+  try:self.entries['pages'].set_text(','.join(map(str,self.pdf_page_order)))
+  finally:self._syncing_pdf=False
+  self.refresh_pdf_order();self.pdf_order_list.select_row(self.pdf_order_list.get_row_at_index(max(0,index)));self.queue_preview()
+ def move_pdf_page(self,delta):
+  row=self.pdf_order_list.get_selected_row()
+  if row is None:return
+  index=row.get_index();other=index+delta
+  if not 0<=other<len(self.pdf_page_order):return
+  self.pdf_page_order[index],self.pdf_page_order[other]=self.pdf_page_order[other],self.pdf_page_order[index];self.sync_pdf_order(other)
+ def remove_pdf_page(self):
+  row=self.pdf_order_list.get_selected_row()
+  if row is None:return
+  if len(self.pdf_page_order)<=1:self.notice.set_text('Keep at least one PDF page.');return
+  index=row.get_index();del self.pdf_page_order[index];self.sync_pdf_order(min(index,len(self.pdf_page_order)-1))
+ def load_video_rectangle(self):
+  from .crop import CropCanvas
+  source=self.paths[0]
+  def worker(stage,runner):
+   ffmpeg=dependencies().get('FFmpeg')
+   if not ffmpeg:raise ValueError('Video selection needs FFmpeg.')
+   path=stage/'frame.png';runner.run([ffmpeg,'-v','error','-i',source,'-frames:v','1','-y',path]);return path.read_bytes()
+  def done(data,error):
+   if error:self.notice.set_text(error[:180]);return
+   self.crop_canvas=CropCanvas(io.BytesIO(data),self.crop_changed,pixel_step=2);self.rectangle_stage.append(self.crop_canvas)
+   if self.action.id=='redact':self.crop_canvas.set_rect(self.crop_canvas.image_width//4,self.crop_canvas.image_height//4,max(2,self.crop_canvas.image_width//2),max(2,self.crop_canvas.image_height//2))
+   self.rectangle_stage.prepend(label('Drag the rectangle; video coordinates snap to even pixels.','hint',True));self.crop_changed(*self.crop_canvas.rect)
+  self.canvas_preview.submit(worker,done)
+ def crop_changed(self,x,y,width,height):
+  self._syncing_crop=True
+  try:
+   for key,value in zip(('x','y','width','height'),(x,y,width,height)):
+    self.values[key]=value
+    if key in self.entries:self.entries[key].set_text(str(value))
+  finally:self._syncing_crop=False
+  self.queue_preview()
+ def file_order(self):
+  self.order_list=Gtk.ListBox();self.order_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+  for path in self.paths:self.order_list.append(label(path.name,'hint'))
+  self.body.append(label('Files are processed in this order. Select one to move it.','hint',True));order_scroll=Gtk.ScrolledWindow();order_scroll.set_min_content_height(90);order_scroll.set_max_content_height(160);order_scroll.set_propagate_natural_height(True);order_scroll.set_child(self.order_list);self.body.append(order_scroll)
+  row=box(Gtk.Orientation.HORIZONTAL);row.append(button('Move up',lambda:self.move_file(-1)));row.append(button('Move down',lambda:self.move_file(1)));self.body.append(row)
+ def move_file(self,delta):
+  selected=self.order_list.get_selected_row()
+  if selected is None:return
+  index=selected.get_index();other=index+delta
+  if not 0<=other<len(self.paths):return
+  self.paths[index],self.paths[other]=self.paths[other],self.paths[index]
+  child=self.order_list.get_first_child()
+  while child:
+   nxt=child.get_next_sibling();self.order_list.remove(child);child=nxt
+  for path in self.paths:self.order_list.append(label(path.name,'hint'))
+  self.order_list.select_row(self.order_list.get_row_at_index(other));self.queue_preview()
+ def choose_action(self):
+  if getattr(self,'action_popup',None):self.action_popup.unparent()
+  popup=Gtk.Popover();anchor=self.body.get_last_child();popup.set_parent(anchor);panel=box(spacing=4)
+  for action in choices(self.paths,'tools')+choices(self.paths,'convert'):
+   def select(a=action):
+    popup.popdown();self.app.set_files(self.paths);self.app.tool_options(a);self.close()
+   panel.append(button(action.label,select))
+  scroll=Gtk.ScrolledWindow();scroll.set_max_content_height(360);scroll.set_propagate_natural_height(True);scroll.set_child(panel);popup.set_child(scroll);popup.popup();self.action_popup=popup
+ def play_workflow_preview(self):
+  result=self.preview_result
+  if not self.preview_ready or not result or not result.media:self.notice.set_text('Generate a playable preview first.');return
+  player=dependencies().get('FFplay')
+  if not player:self.notice.set_text('Playback needs ffplay. The waveform/frame preview is still available.');return
+  self.stop_audio()
+  if not self.audio_dir:self.audio_dir=tempfile.TemporaryDirectory(prefix='petal-listen-')
+  path=Path(self.audio_dir.name)/('sample'+result.suffix);path.write_bytes(result.media)
+  args=[player,'-v','error','-autoexit']+(['-nodisp'] if kind(path)=='audio' else [])
+  self.player=subprocess.Popen(args+[str(path)],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+  for stop in self.stop_buttons:stop.set_visible(True)
  def queue_preview(self):
   if self.closed:return
   if self.debounce:GLib.source_remove(self.debounce)
+  if self.workflow:
+   self.preview_ready=False;self.apply_button.set_sensitive(False);self.notice.set_text('Updating preview…')
+   if hasattr(self,'picture_widget'):self.picture_widget.set_opacity(.35)
+   self.preview.stop();self.preview=AsyncPreview()
   self.debounce=GLib.timeout_add(180,self.render_preview)
  def render_preview(self):
+  self.debounce=None
+  if self.workflow:return self.render_workflow_preview()
+  return self.render_photo_preview()
+ def render_workflow_preview(self):
+  from .workflows import build_preview
+  paths=list(self.paths);params=dict(self.values);action=self.action.id;page=int(self.preview_page.get_value()) if hasattr(self,'preview_page') else 1
+  def worker(stage,runner):return build_preview(paths,action,params,stage,runner,page)
+  def done(result,error):
+   if error:
+    self.preview_ready=False;self.apply_button.set_sensitive(False);self.notice.set_text('Preview needs attention: '+error[:180]);self.preview_details.get_buffer().set_text(error);return
+   self.preview_result=result;self.picture_widget.set_opacity(1);self.preview_details.get_buffer().set_text(result.text);self.picture_widget.set_visible(result.image is not None)
+   if result.image:
+    try:self.picture_widget.set_paintable(Gdk.Texture.new_from_bytes(GLib.Bytes.new(result.image)))
+    except GLib.Error as e:self.notice.set_text('Unable to display preview: '+str(e));return
+   if hasattr(self,'preview_page'):
+    adjustment=self.preview_page.get_adjustment()
+    if int(adjustment.get_upper())!=result.pages:self.preview_page.set_range(1,result.pages)
+   self.preview_ready=True;self.apply_button.set_sensitive(True);self.notice.set_text('Preview ready. Apply creates a new copy; originals stay unchanged.')
+  self.preview.submit(worker,done);return False
+ def render_photo_preview(self):
   self.debounce=None
   if not hasattr(self,'picture_widget') or self.action.id not in ('edit','background','annotate','crop','redact','resize','rotate','flip','grayscale','compress'):return False
   if getattr(self,'original_button',None) and self.original_button.get_active():return False

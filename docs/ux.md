@@ -25,3 +25,9 @@ Program dropdowns start unselected and include an external-program picker. Nothi
 ## Scope of verification
 
 Native controls, roles, layout bounds, callback behavior, actual GTK screenshots, and layer-shell keyboard modes are tested. Full Orca/screen-reader, on-screen keyboard, every desktop portal, and every compositor are not certified by these checks. See the release verification record for measured coverage.
+
+## Interactive work in Beta 2
+
+Conversion and tool leaves open an editor before export. Preview generation cancels stale work; Apply stays disabled while the displayed settings are pending or invalid. Rectangle handles and coordinate fields update each other. Video geometry uses even pixel boundaries. Numeric fields provide a keyboard alternative to pointer handles. PDF page-order buttons and the text field share the same order; batch controls change the actual export order.
+
+Completion feedback stays open with Open results, Edit result, and Done. A result can become the input for another tool. Media and combined-file previews are explicitly bounded samples, not promises of a complete timeline preview. See the editor guide for details.

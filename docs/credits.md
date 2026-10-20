@@ -8,6 +8,10 @@
 
 Petal is an unofficial, independently written Linux port/reimplementation. No original source repository was supplied or verified. It is not an official Tangerine release or a source-code fork. Original Tangerine icons, screenshots, and demo videos are not distributed with Petal.
 
+## Additional interaction reference
+
+[Filee](https://github.com/KnifeLemon/Filee) was reviewed as a reference for per-file-type controls and batch workflows while developing Beta 2. Petal’s native editors are independently implemented; Filee code and conversion engines are not bundled.
+
 ## Petal artwork
 
 The shipped Petal logo was selected and supplied by the user. The original transparent PNG is preserved in [assets/petal-logo.png](../assets/petal-logo.png); [assets/petal.png](../assets/petal.png) is the resized application and tray icon. Earlier design exploration used image generation. See [branding](branding.md) for the asset history.

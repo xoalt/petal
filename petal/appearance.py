@@ -25,10 +25,10 @@ entry,dropdown,spinbutton,popover contents {background:#282e38;color:#edf0f6;bor
 .setup-card,.theme-preview {background:#282e38;border-color:#414957;}
 .success {color:#89d1a6;} .error {color:#ffb4a7;}
 '''
- css+='\nbutton.primary,switch:checked,.tool-window scale highlight,.tool-window progressbar progress {background:'+accent+';border-color:'+accent+';}\n'
+ css+='\nbutton.primary,.tool-window button.primary,switch:checked,.tool-window scale highlight,.tool-window progressbar progress {background:'+accent+';border-color:'+accent+';}\n'
  css+='.orange {color:'+accent+';}\n'
  ink='#'+''.join(f'{round(v*255):02x}' for v in readable_ink(accent,reference=False))
- css+='button.primary {color:'+ink+';} button:focus-visible {outline:2px solid currentColor;outline-offset:2px;}\n'
+ css+='button.primary,.tool-window button.primary {color:'+ink+';} button:focus-visible {outline:2px solid currentColor;outline-offset:2px;}\n'
  css+='button.primary:disabled {background:'+('#353b46' if dark else '#e0e2e5')+';border-color:'+('#353b46' if dark else '#e0e2e5')+';color:'+('#929baa' if dark else '#777b82')+';}\n'
  return css
 

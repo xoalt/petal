@@ -25,11 +25,21 @@ class ConversionError(Exception): pass
 class Cancelled(ConversionError): pass
 
 class Runner:
- def __init__(self, cancel=None): self.cancel=cancel or threading.Event();self.commands=[]
+ def __init__(self, cancel=None, preview=False): self.cancel=cancel or threading.Event();self.commands=[];self.preview=preview
  def check(self):
   if self.cancel.is_set():raise Cancelled('Cancelled. Originals are unchanged.')
  def run(self,args,timeout=1800,max_output=10000,truncate=True):
-  self.check();args=[str(a) for a in args];self.commands.append(args)
+  self.check();args=[str(a) for a in args]
+  if self.preview:
+   timeout=min(timeout,90)
+   if args[0]==dependencies().get('FFmpeg') and '-i' in args:
+    # Input/output limits apply only to disposable previews, never saved copies.
+    cap=min([3.0]+[float(args[i+1]) for i,value in enumerate(args[:-1]) if value=='-t'])
+    if '-ss' in args:
+     i=args.index('-ss');seek=args[i:i+2];del args[i:i+2];j=args.index('-i');args[j:j]=seek
+    for i in reversed([i for i,v in enumerate(args) if v=='-i']):args[i:i]=['-t','3']
+    args[-1:-1]=['-t',f'{cap:g}']
+  self.commands.append(args)
   with tempfile.TemporaryFile() as log:
    try: p=subprocess.Popen(args,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
    except FileNotFoundError as e:raise ConversionError(f'{args[0]} is unavailable. See Settings → Conversions.') from e
@@ -85,6 +95,41 @@ def _image(src,out,fmt,params,runner,extra=()):
  if fmt in ('jpg','bmp','pdf'):args+=['-background',params.get('background','#ffffff'),'-alpha','remove','-alpha','off']
  args+=list(extra)+['-quality',str(int(number(params,'quality',85,1,100))),str(out)]
  runner.run(args)
+
+def _image_effect(src,out,action,p):
+ from PIL import Image,ImageOps,ImageFilter,ImageEnhance,ImageDraw,ImageFont,ImageColor
+ with Image.open(src) as source:
+  image=ImageOps.exif_transpose(source).convert('RGBA')
+ if action=='blur':image=image.filter(ImageFilter.GaussianBlur(number(p,'radius',4,0,100)))
+ elif action=='sharpen':image=ImageEnhance.Sharpness(image).enhance(number(p,'amount',1,0,5))
+ elif action=='invert':
+  alpha=image.getchannel('A');image=ImageOps.invert(image.convert('RGB')).convert('RGBA');image.putalpha(alpha)
+ elif action=='sepia':
+  alpha=image.getchannel('A');image=ImageOps.colorize(ImageOps.grayscale(image),'#24160f','#ffe4b5').convert('RGBA');image.putalpha(alpha)
+ elif action=='border':
+  width=int(number(p,'width',16,0,1000))
+  try:color=ImageColor.getcolor(str(p.get('color','#ffffff')),'RGBA')
+  except ValueError:raise ConversionError('Choose a valid border color.')
+  image=ImageOps.expand(image,border=width,fill=color)
+ elif action=='watermark':
+  text=str(p.get('text','Petal'))[:500]
+  if not text.strip():raise ConversionError('Enter watermark text.')
+  size=int(number(p,'font_size',32,8,500));opacity=int(number(p,'opacity',60,0,100)*255/100)
+  try:color=ImageColor.getrgb(str(p.get('color','#ffffff')))[:3]
+  except ValueError:raise ConversionError('Choose a valid text color.')
+  try:font=ImageFont.truetype('DejaVuSans.ttf',size)
+  except OSError:font=ImageFont.load_default(size=size)
+  overlay=Image.new('RGBA',image.size);draw=ImageDraw.Draw(overlay);bounds=draw.textbbox((0,0),text,font=font)
+  w,h=bounds[2]-bounds[0],bounds[3]-bounds[1];margin=max(8,round(min(image.size)*.04));position=p.get('position','bottom-right')
+  if position not in ('center','top-left','bottom-right'):raise ConversionError('Choose center, top-left, or bottom-right.')
+  x,y=(margin,margin) if position=='top-left' else ((image.width-w)/2,(image.height-h)/2) if position=='center' else (image.width-w-margin,image.height-h-margin)
+  draw.text((max(0,x)-bounds[0],max(0,y)-bounds[1]),text,font=font,fill=(*color,opacity));image=Image.alpha_composite(image,overlay)
+ fmt=out.suffix.lower()
+ if fmt in ('.jpg','.jpeg','.bmp'):image=image.convert('RGB')
+ if fmt not in ('.png','.jpg','.jpeg','.webp','.tiff','.tif','.bmp'):
+  raise ConversionError('Save this image as PNG, JPG, WebP, TIFF or BMP before using this effect.')
+ image.save(out,quality=int(number(p,'quality',85,1,100)))
+ image.close()
 
 def _edit_image(src,out,fmt,p,runner):
  """Edit Photo: approximate light and color adjustments using ImageMagick."""
@@ -229,6 +274,11 @@ def _ffmpeg(src,out,fmt,params,runner,extra=(),executable=None):
   codec=list(audio[fmt])
   if '-b:a' in extra and '-q:a' in codec:
    i=codec.index('-q:a');del codec[i:i+2]
+  if 'bitrate' in params and fmt in ('mp3','m4a','ogg','opus','wma'):
+   for flag in ('-q:a','-b:a'):
+    if flag in codec:
+     i=codec.index(flag);del codec[i:i+2]
+   codec+=['-b:a',str(int(number(params,'bitrate',192,32,320)))+'k']
   args+=['-vn']+codec
  else:args+=codecs.get(fmt,['-c:v','libx264','-c:a','aac'])
  extra=list(extra)
@@ -364,7 +414,9 @@ def _page_indices(raw,count):
   for piece in str(raw).replace(' ','').split(','):
    if not piece:continue
    if '-' in piece:
-    a,b=map(int,piece.split('-',1));indices.extend(range(a-1,b))
+    a,b=map(int,piece.split('-',1))
+    if not 1<=a<=b<=count:raise ConversionError('Choose a page range inside this PDF.')
+    indices.extend(range(a-1,b))
    else:indices.append(int(piece)-1)
  except ValueError:raise ConversionError('Use page numbers such as 1,3-5.')
  if not indices or any(i<0 or i>=count for i in indices):raise ConversionError('Use page numbers such as 1,3-5 within this PDF’s page count.')
@@ -383,7 +435,16 @@ def _pdf(paths,stage,action,params,runner):
    if compress:w.pages[-1].compress_content_streams()
   if action=='strip':w.add_metadata({})
   with open(stage/name,'wb') as f:w.write(f)
- if action=='pdf_split':
+ if action=='pdf_reverse':write(reversed(reader.pages),f'{prefix}-reversed.pdf')
+ elif action=='pdf_remove':
+  excluded=set(_page_indices(params.get('pages','1'),len(reader.pages)))
+  pages=[page for i,page in enumerate(reader.pages) if i not in excluded]
+  if not pages:raise ConversionError('Keep at least one PDF page.')
+  write(pages,f'{prefix}-removed.pdf')
+ elif action=='pdf_duplicate':
+  selected=_page_indices(params.get('pages','1'),len(reader.pages))
+  write([*reader.pages,*[reader.pages[i] for i in selected]],f'{prefix}-duplicated.pdf')
+ elif action=='pdf_split':
   for i,page in enumerate(reader.pages,1):write([page],f'{prefix}-page-{i:03}.pdf')
  elif action=='pdf_merge':
   readers=[PdfReader(p) for p in paths]
@@ -409,7 +470,7 @@ def _convert(src,stage,fmt,p,runner):
   if fmt in ('txt','md'):
    runner.run([required('PDF text'),'-layout',src,out])
   elif fmt in ('png','jpg'):
-   runner.run([required('PDF images'),'-r',str(int(number(p,'dpi',150,36,600))),'-png' if fmt=='png' else '-jpeg',src,stage/f'{name}-page'])
+   runner.run([required('PDF images'),*(['-f','1','-l','1'] if runner.preview else []),'-r',str(int(number(p,'dpi',150,36,600))),'-png' if fmt=='png' else '-jpeg',src,stage/f'{name}-page'])
   elif fmt=='docx':_write_docx(_pdf_pages(src,stage,runner),out,name)
   elif fmt=='epub':_write_epub(_pdf_pages(src,stage,runner),out,name)
   else:raise ConversionError('This PDF export needs an offline layout/OCR engine that is not bundled. Text and page-image exports work now.')
@@ -493,9 +554,9 @@ def _annotate_args(p):
   raise ConversionError('Annotation shape must be none, rectangle, ellipse, or arrow.')
  return args
 
-def execute(paths,action,params=None,output_dir=None,cancel=None):
+def execute(paths,action,params=None,output_dir=None,cancel=None,*,preview=False):
  """Return created paths. A failed job leaves originals and published results intact."""
- paths=[Path(p).expanduser().resolve(strict=True) for p in paths];p=params or {};runner=Runner(cancel);action=ALIASES.get(action,action)
+ paths=[Path(p).expanduser().resolve(strict=True) for p in paths];p=params or {};runner=Runner(cancel,preview=preview);action=ALIASES.get(action,action)
  if not paths:raise ConversionError('Choose at least one local file.')
  if len(paths)>1000:raise ConversionError('Select up to 1,000 files per job.')
  parent=Path(output_dir).expanduser().resolve() if output_dir else paths[0].parent
@@ -606,6 +667,8 @@ def execute(paths,action,params=None,output_dir=None,cancel=None):
     if k=='image':
      if action=='edit':_edit_image(src,out,out.suffix.lstrip('.'),p,runner);continue
      if action=='background':_add_background(src,out,p);continue
+     if action in ('blur','sharpen','invert','sepia','watermark','border'):
+      _image_effect(src,out.with_suffix('.png'),action,p);continue
      opts=[]
      if action=='compress':opts=['-strip']
      elif action=='resize':opts=['-resize',f'{int(number(p,"width",1920,1,32768))}x{int(number(p,"height",1080,1,32768))}>']
@@ -675,6 +738,15 @@ def execute(paths,action,params=None,output_dir=None,cancel=None):
       degrees=int(number(p,'degrees',90,90,270))
       if degrees not in (90,180,270):raise ConversionError('Video rotation supports 90, 180, or 270 degrees.')
       extra=['-vf',{90:'transpose=1',180:'hflip,vflip',270:'transpose=2'}[degrees]];out=out.with_suffix('.mp4')
+     elif action=='fade':
+      duration=float(_probe(src,runner).get('format',{}).get('duration',0))
+      if not math.isfinite(duration) or duration<=0:raise ConversionError('Cannot establish this media duration.')
+      fade_in=number(p,'fade_in',.5,0,duration);fade_out=number(p,'fade_out',.5,0,duration)
+      if fade_in+fade_out>duration:raise ConversionError('The fades must fit within the media duration.')
+      name='afade' if k=='audio' else 'fade';filters=[]
+      if fade_in:filters.append(f'{name}=t=in:st=0:d={fade_in:g}')
+      if fade_out:filters.append(f'{name}=t=out:st={duration-fade_out:g}:d={fade_out:g}')
+      if filters:extra=['-af' if k=='audio' else '-vf',','.join(filters)]
      elif action=='volume':extra=['-af',f'volume={number(p,"volume",1.5,0,10)}']
      elif action=='normalize':extra=['-af','loudnorm=I=-16:TP=-1.5:LRA=11']
      elif action=='speed':

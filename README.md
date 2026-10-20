@@ -18,7 +18,7 @@
   <img src="docs/screenshots/wheel-empty.png" width="320" alt="Petal’s empty conversion wheel with eight output formats and a Choose file button in the center">
 </p>
 
-Drop a file, choose a format, and convert it locally. Petal brings a radial wheel, editing tools, and a file shelf to Linux, with settings in a separate window.
+Drop a file, choose an action, adjust its details, and preview the result before creating a copy. Petal brings a radial wheel, editing tools, and a file shelf to Linux, with settings in a separate window.
 
 For Linux desktops using **Wayland**, with a system tray menu. Inspired by [Tangerine for macOS](https://tangerineformac.com/) by Leap Studio; Petal is an unofficial, independently written Linux reimplementation.
 
@@ -36,12 +36,15 @@ The release contains source files, so Python 3.11+, GTK4, PyGObject, pycairo, an
 
 - **One wheel, three modes.** Shift for formats, Alt for tools, Ctrl for file actions.
 - **Local conversions.** Images, audio, video, documents, PDFs, subtitles, and archives. [Format support →](docs/guides/formats.md)
+- **Interactive editors.** Drag crop and redaction handles, adjust their values, preview PDF pages, and review batch order. [Editor guide →](docs/guides/editors.md)
 - **Your choice of apps.** Pick your file manager, viewers, conversion programs, colors, and animation preferences.
 - **Separate surfaces.** Open the wheel from a shortcut or tray, use the floating drop target, and pin files to the shelf.
 
 Click the center to select files, or drag them onto the wheel. An empty leaf shows **“Select or drag a file”** and briefly shakes. Right-click the tray icon to open Settings.
 
 Conversion support depends on the programs and codecs installed. Petal checks their capabilities and shows missing features. [Software setup →](docs/guides/software.md) · [Known limitations →](docs/guides/limitations.md)
+
+<p align="center"><img src="docs/screenshots/drag-crop.png" width="640" alt="Crop editor with a draggable selection, matching coordinate fields, and a result preview"></p>
 
 ## Explore
 

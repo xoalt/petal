@@ -51,6 +51,7 @@ class Petal(legacy.LegacyApp):
   self.status=label('No conversions yet.','muted',True);self.status.set_selectable(True)
   self.status_box=box();self.status_box.add_css_class('status');self.status_box.append(self.status)
   row=box(Gtk.Orientation.HORIZONTAL);self.cancel_button=button('Cancel job',lambda:self.cancel.set());self.cancel_button.set_visible(False)
+  self.continue_button=button('Use results for another action',self.continue_results);self.continue_button.set_visible(False);row.append(self.continue_button)
   self.open_button=button('Show results',self.open_results);self.open_button.set_visible(False);row.append(self.cancel_button);row.append(self.open_button);self.status_box.append(row)
   self.run_button=Gtk.Button();self.action_label=Gtk.Label()
   self.software_help=button('Check features & get missing software…',self.show_software,'primary');self.software_help.set_visible(False);self.status_box.append(self.software_help)
@@ -254,7 +255,11 @@ class Petal(legacy.LegacyApp):
    return
   if not self.paths:
    self.show_empty_feedback();return
-  return super().run_selected()
+  items=self.page_items()
+  if not 0<=self.selected<len(items):self.status.set_text('Choose a format or tool first.');return
+  action=items[self.selected]
+  if self.mode=='actions':self.file_action(action.id)
+  else:self.tool_options(action)
  def choose_files(self):
   if self.choosers:return
   def chosen(files):
@@ -301,6 +306,10 @@ class Petal(legacy.LegacyApp):
   super().start_job(action,params)
   if self.main:self.main.set_visible(False)
   self.show_progress(action)
+ def continue_results(self):
+  if self.busy or not self.last_outputs:return
+  if self.progress_window:self.progress_window.set_visible(False)
+  self.set_files(self.last_outputs);self.mode='tools';self.page=0;self.selected=-1;self.refresh();self.update_hint();self.show_main()
  def show_progress(self,action):
   if self.progress_window:self.progress_window.destroy()
   self.progress_window=self.window('Petal · conversion',False,420,155);w=self.progress_window;w.add_css_class('tool-window');w.set_decorated(False);w.set_resizable(False)
@@ -310,6 +319,7 @@ class Petal(legacy.LegacyApp):
   title=('Converting to '+action[3:].upper()) if action.startswith('to:') else next((a.label for a in self.current_items() if a.id==action),'Creating copy')
   self.progress_title=label(title,'tool-title');row.append(self.progress_title);self.progress_file=label(self.paths[0].name+(f' + {len(self.paths)-1} more' if len(self.paths)>1 else ''),'field-name');self.progress_file.set_ellipsize(3);body.append(self.progress_file)
   self.progress_bar=Gtk.ProgressBar();body.append(self.progress_bar)
+  self.progress_actions=box(Gtk.Orientation.HORIZONTAL);self.progress_actions.append(button('Open results',self.open_results));self.progress_actions.append(button('Edit result',self.continue_results,'primary'));self.progress_actions.append(button('Done',lambda:w.set_visible(False)));self.progress_actions.set_visible(False);body.append(self.progress_actions)
   def pulse():
    if not self.busy:self.progress_timer=None;return False
    self.progress_bar.pulse();return True
@@ -317,13 +327,13 @@ class Petal(legacy.LegacyApp):
   self.progress_timer=GLib.timeout_add(100,pulse);w.present()
  def finish_job(self,*args):
   result=super().finish_job(*args)
+  self.continue_button.set_visible(not args[3] and bool(self.last_outputs))
   self.software_help.set_visible(bool(args[3]) and any(word in str(args[3]).lower() for word in ('not installed','unavailable','needs','codec','encoder','delegate','convert')))
   if self.progress_window:
    if args[3]:self.progress_window.set_visible(False)
    else:
     self.progress_bar.set_fraction(1);self.progress_title.set_text('Copy saved')
-    completed_window=self.progress_window
-    GLib.timeout_add(1800,lambda:(completed_window.set_visible(False),False)[1] if not self.busy and completed_window==self.progress_window else False)
+    self.progress_actions.set_visible(True)
   if args[3]:self.show_activity()
   if args[3] and self.settings.get('notify'):
    n=Gio.Notification.new('Petal · conversion needs attention');n.set_body(str(args[3])[:200]);self.send_notification('job',n)
