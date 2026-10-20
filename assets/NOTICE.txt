@@ -1,5 +1,5 @@
-Petal is an unofficial Linux port/reimplementation of Tangerine for macOS,
-by Leap Studio: https://tangerineformac.com/
+Petal is an unofficial Linux port/reimplementation of Tangerine for macOS:
+https://tangerineformac.com/
 
 Petal is independently written. No original source repository was supplied
 or verified, and this is not an official release or a source-code fork.
