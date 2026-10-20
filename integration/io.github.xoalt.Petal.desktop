@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Petal
+Comment=Offline file conversion wheel for Wayland
+Exec=petal %F
+Icon=io.github.xoalt.Petal
+Terminal=false
+Categories=Utility;
+Keywords=convert;wheel;image;audio;video;pdf;
+StartupNotify=false
+StartupWMClass=io.github.xoalt.Petal

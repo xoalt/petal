@@ -1,0 +1,53 @@
+{
+  "version": "0.6.0",
+  "tested_on": "2026-10-20, MangoWM / Wayland / Noctalia",
+  "unit_tests": {
+    "total": 69,
+    "passed": 68,
+    "skipped": 1,
+    "skip_reason": "LibreOffice unavailable on normal desktop PATH"
+  },
+  "native_checks": {
+    "onboarding": {
+      "count": 31,
+      "passed": true
+    },
+    "editors": {
+      "count": 17,
+      "passed": true
+    },
+    "software": {
+      "count": 22,
+      "passed": true
+    },
+    "ux": {
+      "count": 32,
+      "passed": true
+    },
+    "desktop": {
+      "count": 12,
+      "passed": true
+    }
+  },
+  "vendored_dependency_audit": {
+    "dependencies": [
+      {
+        "name": "pypdf",
+        "version": "6.21.1",
+        "vulns": []
+      }
+    ],
+    "fixes": []
+  },
+  "vendor_integrity": {
+    "version": "6.21.1",
+    "wheel_sha256": "553e2d42f5bb3bb2a785a7d3de8ef90bb7df74b5413eff5a7b4388007ea9254b",
+    "module_files_matched": 60,
+    "source": "PyPI upstream wheel"
+  },
+  "medium_high_static_security_findings": 0,
+  "installer_transaction_testing": "Mocked: no system packages installed on the user desktop",
+  "picker_testing": "Real opening/cancellation, supplied file model for response callback tests",
+  "accessibility": "Native keyboard modes, action button roles, contrast and compact large-text layout; not full screen-reader certification",
+  "reference": "Unofficial independent Linux port/reimplementation of https://tangerineformac.com/; original graphics excluded"
+}

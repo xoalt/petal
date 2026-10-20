@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -eu
+petal_root="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+export PYTHONPATH="$petal_root${PYTHONPATH:+:$PYTHONPATH}"
+# This Cairo-drawn utility needs no GPU; avoid driver initialization delays.
+export GSK_RENDERER="${GSK_RENDERER:-cairo}"
+export PETAL_STATE_DIR="${PETAL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/petal}"
+if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+ export GDK_BACKEND=wayland
+ # gtk4-layer-shell must load before GTK initializes its Wayland connection.
+ for petal_layer in /usr/lib/libgtk4-layer-shell.so /usr/lib64/libgtk4-layer-shell.so /usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so; do
+  if [[ -f "$petal_layer" ]]; then
+   export LD_PRELOAD="$petal_layer${LD_PRELOAD:+:$LD_PRELOAD}"
+   break
+  fi
+ done
+fi
+exec python3 -m petal "$@"

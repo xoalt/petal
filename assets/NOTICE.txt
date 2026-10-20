@@ -1,0 +1,15 @@
+Petal is an unofficial Linux port/reimplementation of Tangerine for macOS,
+by Leap Studio: https://tangerineformac.com/
+
+Petal is independently written. No original source repository was supplied
+or verified, and this is not an official release or a source-code fork.
+Original Tangerine icons, screenshots, and demo video are not redistributed.
+
+The Petal rosette logo was created specifically for this project using the
+built-in OpenAI image-generation tool, then exported at app-icon size.
+The logo is included with this project under the MIT license to the extent
+applicable. No claim of exclusive rights in AI-generated output is made.
+See docs/branding.md for the design prompt and generation details.
+
+pypdf 6.21.1 is vendored under its upstream BSD-3-Clause license; see
+vendor/pypdf-6.21.1.dist-info/licenses/LICENSE.

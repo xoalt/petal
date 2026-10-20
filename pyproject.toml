@@ -1,0 +1,14 @@
+[project]
+name = "petal-wayland"
+version = "0.6.0"
+description = "An offline file conversion wheel for Wayland"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{name = "Petal contributors"}]
+
+[tool.ruff]
+exclude = ["vendor"]
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]
