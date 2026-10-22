@@ -44,7 +44,7 @@ Click the center to select files, or drag them onto the wheel. An empty leaf sho
 
 Conversion support depends on the programs and codecs installed. Petal checks their capabilities and shows missing features. [Software setup →](docs/guides/software.md) · [Known limitations →](docs/guides/limitations.md)
 
-<p align="center"><img src="docs/screenshots/drag-crop.png" width="640" alt="Crop editor with a draggable selection, matching coordinate fields, and a result preview"></p>
+
 
 ## Explore
 
